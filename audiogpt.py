@@ -1,11 +1,7 @@
 import base64
 
 import streamlit as st
-from dotenv import load_dotenv
 from openai import OpenAI
-
-# Load environment variables from .env file
-load_dotenv()
 
 
 def parse_analysis_response(response_text):
@@ -122,8 +118,7 @@ def parse_analysis_response(response_text):
 
 def process_audio_with_openai(audio_file_path, field="general"):
     """Process audio with OpenAI using both GPT-4 and Audio analysis"""
-    client = OpenAI()
-    client.api_key = st.secrets["api_key"]
+    client = OpenAI(api_key=str(st.secrets["api_key"]))
     try:
         # First get transcription with Whisper
         with open(audio_file_path, "rb") as audio_file:
@@ -221,17 +216,9 @@ def process_audio_with_openai(audio_file_path, field="general"):
 
         {speech_analysis.choices[0].message.content}
         """
-        return parse_analysis_response(combined_response), transcribed_text
+        analysis = parse_analysis_response(combined_response)
+        return analysis["technical_feedback"], analysis["fluency_feedback"]
 
     except Exception as e:
         st.error("❌ Error: " + str(e))
         raise
-
-
-def analyze_audio(audio_file_path):
-    try:
-        analysis, text = process_audio_with_openai(audio_file_path)
-    except Exception as e:
-        st.error("❌ Error: " + str(e))
-
-    return analysis["technical_feedback"], analysis["fluency_feedback"], text

@@ -4,7 +4,7 @@ import tempfile
 import streamlit as st
 from audiorecorder import audiorecorder
 
-from audiogpt import analyze_audio
+from audiogpt import process_audio_with_openai
 
 st.set_page_config(layout="centered", page_title="Speech Proficiency Test")
 st.html("<style> .main {overflow: hidden} </style>")
@@ -65,7 +65,7 @@ def show_audio_recorder():
         with col2:
             st.audio(temp_file_path)
 
-        technical, fluency, transcribed = analyze_audio(temp_file_path)
+        technical, fluency = process_audio_with_openai(temp_file_path, field="general")
 
         container = st.container(border=True)
         with container:
