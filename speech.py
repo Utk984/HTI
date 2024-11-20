@@ -17,12 +17,24 @@ st.html("<style> .main {overflow: hidden} </style>")
 
 # OAuth Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-client_secrets = st.secrets["web"]
 
 
 def authenticate_google_drive():
     """Authenticate and return a Drive API client."""
     creds = None
+    client_secrets = {
+        "web": {
+            "client_id": st.secrets["web"]["client_id"],
+            "project_id": st.secrets["web"]["project_id"],
+            "auth_uri": st.secrets["web"]["auth_uri"],
+            "token_uri": st.secrets["web"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["web"][
+                "auth_provider_x509_cert_url"
+            ],
+            "client_secret": st.secrets["web"]["client_secret"],
+            "redirect_uris": st.secrets["web"]["redirect_uris"],
+        }
+    }
     # Load credentials if they exist
     if os.path.exists("token.pickle"):
         with open("token.pickle", "rb") as token:
