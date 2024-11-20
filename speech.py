@@ -17,6 +17,7 @@ st.html("<style> .main {overflow: hidden} </style>")
 
 # OAuth Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+client_secrets = st.secrets["web"]
 
 
 def authenticate_google_drive():
@@ -32,9 +33,7 @@ def authenticate_google_drive():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "client_secrets.json", SCOPES
-            )
+            flow = InstalledAppFlow.from_client_config(client_secrets, SCOPES)
             creds = flow.run_local_server(port=8080)
 
         # Save the credentials for the next run
