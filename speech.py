@@ -139,16 +139,7 @@ def show_audio_recorder():
         )
         upload_to_drive(temp_file_path, file_name)
 
-        technical = process_audio_with_openai(temp_file_path)
-
-        # Scores (dummy values, replace with real ones as needed)
-        scores = {
-            "Coherence": 1,
-            "Pronunciation": 3,
-            "Vocabulary": 5,
-            "Fluency": 4,
-            "Grammar": 3,
-        }
+        technical, scores = process_audio_with_openai(temp_file_path)
 
         st.markdown(
             """
