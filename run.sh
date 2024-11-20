@@ -1,1 +1,1 @@
- streamlit run src/speech.py
+ streamlit run speech.py
