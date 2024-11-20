@@ -1,10 +1,12 @@
 import os
+import pickle
 import tempfile
 from datetime import datetime
 
 import streamlit as st
 from audiorecorder import audiorecorder
-from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -18,16 +20,9 @@ SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
 def authenticate_google_drive():
-    """Authenticate and return a Drive API service."""
-    # Initialize session state for OAuth flow
-    if "oauth_state" not in st.session_state:
-        st.session_state.oauth_state = None
-
-    if "credentials" not in st.session_state:
-        st.session_state.credentials = None
-
-    # Configure the OAuth flow
-    client_config = {
+    """Authenticate and return a Drive API client."""
+    creds = None
+    client_secrets = {
         "web": {
             "client_id": st.secrets["web"]["client_id"],
             "project_id": st.secrets["web"]["project_id"],
@@ -37,94 +32,37 @@ def authenticate_google_drive():
                 "auth_provider_x509_cert_url"
             ],
             "client_secret": st.secrets["web"]["client_secret"],
-            "redirect_uris": [
-                st.secrets["web"]["redirect_uris"][0]
-            ],  # Use the first redirect URI
+            "redirect_uris": st.secrets["web"]["redirect_uris"],
         }
     }
+    # Load credentials if they exist
+    if os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as token:
+            creds = pickle.load(token)
 
-    # Check if we have valid credentials
-    if st.session_state.credentials:
-        try:
-            service = build("drive", "v3", credentials=st.session_state.credentials)
-            # Test the credentials with a simple API call
-            service.files().list(pageSize=1).execute()
-            return service
-        except Exception:
-            st.session_state.credentials = None
-
-    # If no valid credentials, start OAuth flow
-    if not st.session_state.credentials:
-        if not st.session_state.oauth_state:
-            # Create the flow using the client secrets
-            flow = Flow.from_client_config(
-                client_config,
-                scopes=["https://www.googleapis.com/auth/drive.file"],
-                redirect_uri=client_config["web"]["redirect_uris"][0],
-            )
-
-            # Generate the authorization URL
-            authorization_url, state = flow.authorization_url(
-                access_type="offline", include_granted_scopes="true"
-            )
-
-            # Store the state in session
-            st.session_state.oauth_state = state
-
-            # Display the authorization URL
-            st.markdown(
-                """
-                ### Google Drive Authorization Required
-                Please click the link below to authorize this application:
-            """
-            )
-            st.markdown(f"[Authorize Google Drive]({authorization_url})")
-            st.stop()
-
+    # If no credentials, authenticate with the user
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
         else:
-            # Check if we have the authorization response in the URL
-            try:
-                code = st.experimental_get_query_params().get("code", [None])[0]
-                if code:
-                    flow = Flow.from_client_config(
-                        client_config,
-                        scopes=["https://www.googleapis.com/auth/drive.file"],
-                        state=st.session_state.oauth_state,
-                        redirect_uri=client_config["web"]["redirect_uris"][0],
-                    )
+            flow = InstalledAppFlow.from_client_config(client_secrets, SCOPES)
+            creds = flow.run_local_server(port=0)
 
-                    # Exchange the authorization code for credentials
-                    flow.fetch_token(code=code)
-                    st.session_state.credentials = flow.credentials
-                    st.session_state.oauth_state = None
+        # Save the credentials for the next run
+        with open("token.pickle", "wb") as token:
+            pickle.dump(creds, token)
 
-                    # Clear the URL parameters
-                    st.experimental_set_query_params()
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"Authentication error: {str(e)}")
-                st.session_state.oauth_state = None
-                st.stop()
-
-    # If we have credentials, build and return the service
-    if st.session_state.credentials:
-        return build("drive", "v3", credentials=st.session_state.credentials)
-
-    return None
+    return build("drive", "v3", credentials=creds)
 
 
 def upload_to_drive(file_path, file_name):
     """Upload a file to Google Drive."""
     drive_service = authenticate_google_drive()
-    if drive_service:
-        file_metadata = {"name": file_name}
-        media = MediaFileUpload(file_path, mimetype="audio/wav")
-        drive_service.files().create(
-            body=file_metadata, media_body=media, fields="id"
-        ).execute()
-        return True
-    return False
+    file_metadata = {"name": file_name}
+    media = MediaFileUpload(file_path, mimetype="audio/wav")
+    drive_service.files().create(
+        body=file_metadata, media_body=media, fields="id"
+    ).execute()
 
 
 def reset_form():
