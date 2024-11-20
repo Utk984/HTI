@@ -1,3 +1,4 @@
+import base64
 import os
 import pickle
 import tempfile
@@ -40,15 +41,17 @@ def authenticate_google_drive():
         with open("token.pickle", "rb") as token:
             creds = pickle.load(token)
 
-    # If no credentials, authenticate with the user
+    if "google" in st.secrets and "token" in st.secrets["google"]:
+        token_bytes = base64.b64decode(st.secrets["google"]["token"])
+        creds = pickle.loads(token_bytes)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_config(client_secrets, SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=0, authorization_prompt_message="")
 
-        # Save the credentials for the next run
         with open("token.pickle", "wb") as token:
             pickle.dump(creds, token)
 
