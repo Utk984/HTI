@@ -1,13 +1,57 @@
 import os
+import pickle
 import tempfile
+from datetime import datetime
 
 import streamlit as st
 from audiorecorder import audiorecorder
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 from audiogpt import process_audio_with_openai
 
 st.set_page_config(layout="wide", page_title="Speech Proficiency Test")
 st.html("<style> .main {overflow: hidden} </style>")
+
+# OAuth Scopes
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+
+
+def authenticate_google_drive():
+    """Authenticate and return a Drive API client."""
+    creds = None
+    # Load credentials if they exist
+    if os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as token:
+            creds = pickle.load(token)
+
+    # If no credentials, authenticate with the user
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "client_secrets.json", SCOPES
+            )
+            creds = flow.run_local_server(port=8080)
+
+        # Save the credentials for the next run
+        with open("token.pickle", "wb") as token:
+            pickle.dump(creds, token)
+
+    return build("drive", "v3", credentials=creds)
+
+
+def upload_to_drive(file_path, file_name):
+    """Upload a file to Google Drive."""
+    drive_service = authenticate_google_drive()
+    file_metadata = {"name": file_name}
+    media = MediaFileUpload(file_path, mimetype="audio/wav")
+    drive_service.files().create(
+        body=file_metadata, media_body=media, fields="id"
+    ).execute()
 
 
 def reset_form():
@@ -66,7 +110,22 @@ def show_audio_recorder():
         with col2:
             st.audio(temp_file_path)
 
-        technical, fluency = process_audio_with_openai(temp_file_path, field="general")
+        t = datetime.now().strftime("%m-%d-%H-%M")
+        file_name = (
+            st.session_state["user_data"]["name"]
+            + "_"
+            + st.session_state["user_data"]["email"]
+            + "_"
+            + str(st.session_state["user_data"]["age"])
+            + "_"
+            + st.session_state["user_data"]["sex"]
+            + "_"
+            + t
+            + ".wav"
+        )
+        upload_to_drive(temp_file_path, file_name)
+
+        technical = process_audio_with_openai(temp_file_path)
 
         # Scores (dummy values, replace with real ones as needed)
         scores = {
@@ -105,7 +164,6 @@ def show_audio_recorder():
                 f'<div style="text-align: center; font-size: 18px;">Pronunciation</div>',
                 unsafe_allow_html=True,
             )
-        # col1, col2, col3 = st.columns(3)
         with col3:
             st.markdown(
                 f'<div style="text-align: center; font-size: 36px; font-weight: bold; ">{scores["Vocabulary"]}</div>',
@@ -145,7 +203,6 @@ def show_audio_recorder():
                 """,
                 unsafe_allow_html=True,
             )
-            st.markdown(fluency, unsafe_allow_html=True)
             st.markdown(technical, unsafe_allow_html=True)
 
         os.remove(temp_file_path)
@@ -161,12 +218,9 @@ def show_navigation_buttons():
 
 
 def main():
-
-    # Initialize session state if not exists
     if "form_submitted" not in st.session_state:
         st.session_state["form_submitted"] = False
 
-    # Main page routing
     if not st.session_state["form_submitted"]:
         show_sign_up_form()
     else:

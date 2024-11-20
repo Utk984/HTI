@@ -3,131 +3,129 @@ import base64
 import streamlit as st
 from openai import OpenAI
 
+PROMPT = """
+"You are a specialized evaluator analyzing speech and content. Your ONLY purpose is to provide precise, data-driven feedback using the framework below.
 
-def parse_analysis_response(response_text):
-    """Parse the GPT response text into a structured format"""
-    try:
-        # Initialize default values
-        ratings_dict = {
-            # Technical metrics
-            "specificity_of_terms": 0,
-            "conceptual_complexity": 0,
-            "density_of_information": 0,
-            "syntactic_complexity": 0,
-            "level_of_education_required": 0,
-            "clarity": 0,
-            "precision": 0,
-            "relevance": 0,
-            "brevity": 0,
-            "audience_appropriateness": 0,
-            "contextual_usage": 0,
-            "overall_technical_complexity": 0,
-            # Fluency metrics
-            "pronunciation": 0,
-            "intonation": 0,
-            "rhythm": 0,
-            "speaking_pace": 0,
-            "vocal_clarity": 0,
-            "confidence": 0,
-            "fluidity": 0,
-            "overall_fluency": 0,
-            # Feedback
-            "technical_feedback": "",
-            "fluency_feedback": "",
-        }
+EVALUATION FRAMEWORK
 
-        # Split into sections based on keywords
-        sections = {
-            "technical_ratings": "",
-            "technical_overall": "",
-            "technical_feedback": "",
-            "fluency_ratings": "",
-            "fluency_overall": "",
-            "fluency_feedback": "",
-        }
+1. LANGUAGE COHERENCE [/5]
+What to analyze:
+• Flow between sentences
+• Logical order of ideas
+• Clear main points
+• Supporting details
+• Use of transitions
 
-        current_section = None
-        for line in response_text.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
+Evidence required:
+- Quote 2 examples of strongest/weakest transitions
+- Identify any logical gaps
+- Mark unclear connections
 
-            if "TECHNICAL RATINGS" in line:
-                current_section = "technical_ratings"
-                continue
-            elif "OVERALL TECHNICAL COMPLEXITY" in line:
-                current_section = "technical_overall"
-                continue
-            elif "TECHNICAL FEEDBACK" in line:
-                current_section = "technical_feedback"
-                continue
-            elif "FLUENCY RATINGS" in line:
-                current_section = "fluency_ratings"
-                continue
-            elif "OVERALL FLUENCY" in line:
-                current_section = "fluency_overall"
-                continue
-            elif "FLUENCY FEEDBACK" in line:
-                current_section = "fluency_feedback"
-                continue
+2. TECHNICAL PRECISION [/5]
+What to analyze:
+• Field-specific terminology
+• Accuracy of concepts
+• Consistency in usage
+• Technical explanations
+• Term definitions
 
-            if current_section:
-                sections[current_section] += line + "\n"
+Evidence required:
+- List misused terms with corrections
+- Note undefined jargon
+- Highlight strong/weak explanations
 
-        # Parse ratings sections
-        for section_text in [
-            sections["technical_ratings"],
-            sections["fluency_ratings"],
-        ]:
-            for line in section_text.split("\n"):
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    key = key.strip().lower().replace(" ", "_")
-                    try:
-                        value = int("".join(c for c in value if c.isdigit())[:1] or "0")
-                        if key in ratings_dict:
-                            ratings_dict[key] = value
-                    except (ValueError, IndexError):
-                        continue
+3. PRONUNCIATION QUALITY [/5]
+What to analyze:
+• Word stress placement
+• Sentence intonation
+• Individual sounds
+• Connected speech
+• Stress timing
 
-        # Parse overall scores
-        try:
-            technical_overall = int(
-                "".join(c for c in sections["technical_overall"] if c.isdigit())[:1]
-                or "0"
-            )
-            fluency_overall = int(
-                "".join(c for c in sections["fluency_overall"] if c.isdigit())[:1]
-                or "0"
-            )
-            ratings_dict["overall_technical_complexity"] = technical_overall
-            ratings_dict["overall_fluency"] = fluency_overall
-        except (ValueError, IndexError):
-            pass
+Evidence required:
+- List specific sound issues using IPA
+- Mark stress errors with examples
+- Note intonation patterns
+- Provide Google respelling for corrections
 
-        # Get feedback
-        ratings_dict["technical_feedback"] = sections["technical_feedback"].strip()
-        ratings_dict["fluency_feedback"] = sections["fluency_feedback"].strip()
+4. SPEECH FLUENCY [/5]
+What to analyze:
+• Natural speech rate
+• Pause locations
+• Filler word usage
+• Sentence completion
+• Overall smoothness
 
-        return ratings_dict
+Evidence required:
+- Calculate fillers per minute
+- Mark unnatural pause points
+- Note speech rate changes
 
-    except Exception as e:
-        print(f"⚠️ Warning: Error parsing response: {str(e)}")
-        return ratings_dict
+5. CONTENT DEPTH [/5]
+What to analyze:
+• Topic coverage
+• Key point development
+• Example quality
+• Detail relevance
+• Concept explanation
+
+Evidence required:
+- List missing key points
+- Quote strongest/weakest examples
+- Identify underdeveloped ideas
+
+OUTPUT FORMAT
+
+1. SCORES & EVIDENCE
+[Competency]: [Score]/5
+Primary Evidence:
+- [Quote/example from speech]
+- [Specific issue identified]
+Pattern Impact:
+- [How it affects communication]
+Fix Required:
+- [Specific correction needed]
+
+2. PRIORITY ISSUES
+List exactly 3 highest-impact problems:
+1. [Issue + Example + Fix]
+2. [Issue + Example + Fix]
+3. [Issue + Example + Fix]
+
+3. PRACTICE FOCUS
+Provide ONE specific exercise for top issue:
+Exercise: [Detailed description]
+Duration: [Specific time]
+Success Measure: [How to verify improvement]
+
+RULES
+1. NO general advice
+2. NO praise without examples
+3. ONLY patterns (ignore one-off errors)
+4. ALL feedback needs sample evidence
+5. ALL fixes must be specific/measurable
+
+SCORING RUBRIC
+5: Near perfect, minimal patterns to fix
+4: Strong with 1-2 clear pattern issues
+3: Average with 2-3 significant patterns
+2: Weak with multiple major patterns
+1: Poor with pervasive issues
+
+Analyze the following speech sample and provide evaluation following the exact format above:"
+"""
 
 
-def process_audio_with_openai(audio_file_path, field="general"):
+def process_audio_with_openai(audio_file_path):
     """Process audio with OpenAI using both GPT-4 and Audio analysis"""
     client = OpenAI(api_key=str(st.secrets["api_key"]))
     try:
-        # First get transcription with Whisper
         with open(audio_file_path, "rb") as audio_file:
             transcription_response = client.audio.transcriptions.create(
                 model="whisper-1", file=audio_file
             )
-        transcribed_text = transcription_response.text
+        # transcribed_text = transcription_response.text
 
-        # Then analyze the audio for speech quality
         with open(audio_file_path, "rb") as audio_file:
             audio_data = base64.b64encode(audio_file.read()).decode("utf-8")
 
@@ -140,28 +138,7 @@ def process_audio_with_openai(audio_file_path, field="general"):
                         "content": [
                             {
                                 "type": "text",
-                                "text": """Analyze the speech quality in this recording. Focus on:
-                                1. Pronunciation clarity and accuracy
-                                2. Speech rhythm and pacing
-                                3. Vocal confidence and tone
-                                4. Natural flow and fluidity
-                                5. Overall speaking effectiveness
-                                
-                                Format your response exactly as:
-                                FLUENCY RATINGS
-                                Pronunciation: [1-5]
-                                Intonation: [1-5]
-                                Rhythm: [1-5]
-                                Speaking Pace: [1-5]
-                                Vocal Clarity: [1-5]
-                                Confidence: [1-5]
-                                Fluidity: [1-5]
-                                
-                                OVERALL FLUENCY
-                                [Score 1-5]
-                                
-                                FLUENCY FEEDBACK
-                                [Detailed feedback]""",
+                                "text": PROMPT,
                             },
                             {
                                 "type": "input_audio",
@@ -172,52 +149,7 @@ def process_audio_with_openai(audio_file_path, field="general"):
                 ],
             )
 
-        # Finally analyze technical content with GPT-4
-        technical_analysis = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a technical content analyzer. Provide precise ratings and constructive feedback.",
-                },
-                {
-                    "role": "user",
-                    "content": f"""
-                Analyze this statement from the field of {field} for technical complexity:
-
-                Statement: "{transcribed_text}"
-
-                Rate each criterion (1-5) and provide feedback. Format exactly as:
-                TECHNICAL RATINGS
-                Specificity of Terms: [rate]
-                Conceptual Complexity: [rate]
-                Density of Information: [rate]
-                Syntactic Complexity: [rate]
-                Level of Education Required: [rate]
-                Clarity: [rate]
-                Precision: [rate]
-                Relevance: [rate]
-                Brevity: [rate]
-                Audience Appropriateness: [rate]
-                Contextual Usage: [rate]
-
-                OVERALL TECHNICAL COMPLEXITY
-                [Score]
-
-                TECHNICAL FEEDBACK
-                [Detailed feedback]""",
-                },
-            ],
-        )
-
-        # Combine both analyses
-        combined_response = f"""
-        {technical_analysis.choices[0].message.content}
-
-        {speech_analysis.choices[0].message.content}
-        """
-        analysis = parse_analysis_response(combined_response)
-        return analysis["technical_feedback"], analysis["fluency_feedback"]
+        return speech_analysis.choices[0].message.content
 
     except Exception as e:
         st.error("❌ Error: " + str(e))
