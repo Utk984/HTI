@@ -143,7 +143,7 @@ def show_audio_recorder():
 
         # Scores (dummy values, replace with real ones as needed)
         scores = {
-            "Coherence": 4,
+            "Coherence": 1,
             "Pronunciation": 3,
             "Vocabulary": 5,
             "Fluency": 4,
