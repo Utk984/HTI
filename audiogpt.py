@@ -4,115 +4,39 @@ import streamlit as st
 from openai import OpenAI
 
 PROMPT = """
-"You are a specialized evaluator analyzing speech and content. Your ONLY purpose is to provide precise, data-driven feedback using the framework below.
+You are a specialized evaluator analyzing speech and content. Your ONLY purpose is to provide precise, data-driven feedback and return results in the specified JSON format.
 
-EVALUATION FRAMEWORK
-
-1. LANGUAGE COHERENCE [/5]
-What to analyze:
-• Flow between sentences
-• Logical order of ideas
-• Clear main points
-• Supporting details
-• Use of transitions
-
-Evidence required:
-- Quote 2 examples of strongest/weakest transitions
-- Identify any logical gaps
-- Mark unclear connections
-
-2. TECHNICAL PRECISION [/5]
-What to analyze:
-• Field-specific terminology
-• Accuracy of concepts
-• Consistency in usage
-• Technical explanations
-• Term definitions
-
-Evidence required:
-- List misused terms with corrections
-- Note undefined jargon
-- Highlight strong/weak explanations
-
-3. PRONUNCIATION QUALITY [/5]
-What to analyze:
-• Word stress placement
-• Sentence intonation
-• Individual sounds
-• Connected speech
-• Stress timing
-
-Evidence required:
-- List specific sound issues using IPA
-- Mark stress errors with examples
-- Note intonation patterns
-- Provide Google respelling for corrections
-
-4. SPEECH FLUENCY [/5]
-What to analyze:
-• Natural speech rate
-• Pause locations
-• Filler word usage
-• Sentence completion
-• Overall smoothness
-
-Evidence required:
-- Calculate fillers per minute
-- Mark unnatural pause points
-- Note speech rate changes
-
-5. CONTENT DEPTH [/5]
-What to analyze:
-• Topic coverage
-• Key point development
-• Example quality
-• Detail relevance
-• Concept explanation
-
-Evidence required:
-- List missing key points
-- Quote strongest/weakest examples
-- Identify underdeveloped ideas
+EVALUATION PARAMETERS
+Rate the speech on the following parameters:
+1. **Coherence**: Logical flow and structure of the speech.
+2. **Pronunciation**: Clarity and correctness of spoken words.
+3. **Vocabulary**: Appropriateness and richness of word choice.
+4. **Fluency**: Smoothness and rhythm of speech delivery.
+5. **Grammar**: Correctness of syntax and sentence structure.
 
 OUTPUT FORMAT
+Provide a JSON object with two fields:
+1. `scores`: An object containing numerical ratings (1-5) for each parameter.
+2. `content`: A detailed text explanation, including evidence and specific observations for each parameter.
 
-1. SCORES & EVIDENCE
-[Competency]: [Score]/5
-Primary Evidence:
-- [Quote/example from speech]
-- [Specific issue identified]
-Pattern Impact:
-- [How it affects communication]
-Fix Required:
-- [Specific correction needed]
-
-2. PRIORITY ISSUES
-List exactly 3 highest-impact problems:
-1. [Issue + Example + Fix]
-2. [Issue + Example + Fix]
-3. [Issue + Example + Fix]
-
-3. PRACTICE FOCUS
-Provide ONE specific exercise for top issue:
-Exercise: [Detailed description]
-Duration: [Specific time]
-Success Measure: [How to verify improvement]
+EXAMPLE JSON OUTPUT:
+{
+    "scores": {
+        "Coherence": 1,
+        "Pronunciation": 3,
+        "Vocabulary": 5,
+        "Fluency": 4,
+        "Grammar": 3
+    },
+    "content": "The speech had low coherence due to abrupt topic shifts. Pronunciation was clear but had minor issues with word stress, such as on 'emphasis'. Vocabulary was rich, with varied word usage. Fluency was good, but there were occasional filler words. Grammar was acceptable, though some sentences were overly simplistic."
+}
 
 RULES
-1. NO general advice
-2. NO praise without examples
-3. ONLY patterns (ignore one-off errors)
-4. ALL feedback needs sample evidence
-5. ALL fixes must be specific/measurable
-
-SCORING RUBRIC
-5: Near perfect, minimal patterns to fix
-4: Strong with 1-2 clear pattern issues
-3: Average with 2-3 significant patterns
-2: Weak with multiple major patterns
-1: Poor with pervasive issues
-
-Analyze the following speech sample and provide evaluation following the exact format above:"
+1. Only return the JSON object.
+2. Ensure the JSON is valid and does not include any additional text or Markdown formatting.
+3. Do not include any additional text or formatting.
+4. Use a consistent scale from 1 (poor) to 5 (excellent).
+5. Provide specific evidence or examples in the `content` field to support each score.
 """
 
 
@@ -148,8 +72,17 @@ def process_audio_with_openai(audio_file_path):
                     }
                 ],
             )
+        try:
+            result = json.loads(
+                speech_analysis.choices[0].message.content)
+            scores = result["scores"]
+            content = result["content"]
+        except json.JSONDecodeError as e:
+            print("Failed to parse JSON output:", e)
+            print("Raw response:",
+                  speech_analysis.choices[0].message.content)
 
-        return speech_analysis.choices[0].message.content
+        return content, scores
 
     except Exception as e:
         st.error("❌ Error: " + str(e))
