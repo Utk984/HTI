@@ -13,8 +13,18 @@ from googleapiclient.http import MediaFileUpload
 
 from audiogpt import process_audio_with_openai
 
-st.set_page_config(layout="wide", page_title="Speech Proficiency Test")
+# st.set_page_config(layout="wide", page_title="Speech Proficiency Test")
+st.set_page_config(page_title="Speech Proficiency Test", layout="centered")
 st.html("<style> .main {overflow: hidden} </style>")
+
+# Initialize session state for 'Entry'
+if 'Entry' not in st.session_state:
+    st.session_state['Entry'] = False
+
+
+def enter_button_click():
+    # Function to handle button click
+    st.session_state['Entry'] = True
 
 # OAuth Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
@@ -221,16 +231,124 @@ def show_navigation_buttons():
             reset_form()
             st.rerun()
 
+def show_welcome_page():
+    # Header Section
+    st.markdown(
+        """
+        <div style="text-align: center; font-size: 36px; font-weight: bold; color: red; margin-bottom: 20px;">
+            Welcome
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Static Project Details Section
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 20px; border-radius: 8px; 
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 20px;">
+            <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px; color: red;">
+                Technical Speech Proficiency
+            </div>
+            <div style="font-size: 16px; font-weight: normal; color: #666;">
+                This project will rate your speech proficiency on five parameters Coherence, Pronunciation, Vocabulary, Fluency and Grammar.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Centered "Enter" Button
+    st.markdown("<div style='margin-top: 60px;'></div>",
+                unsafe_allow_html=True)  # Add spacing above the button
+    col1, col2, col3 = st.columns([3, 1, 3])  # Create columns for centering
+
+    with col2:
+        # Custom styling for the button
+        st.markdown(
+            """
+            <style>
+                div.stButton > button {
+                    width: 150px;
+                    height: 50px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    background-color: #f9f9f9;
+                    color: black;
+                    border: 1px solid #ccc;
+                    border-radius: 8px;
+                    cursor: pointer;
+                }
+                div.stButton > button:hover {
+                    background-color: #00000;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Button with a callback
+        st.button("Enter", on_click=enter_button_click)
+
+    st.markdown("<div style='margin-bottom: 30px;'></div>",
+                unsafe_allow_html=True)  # Add spacing below the button
+
+    # Add a vertical gap between the Enter button and the navigator/logo section
+    st.markdown("<div style='margin-top: 120px;'></div>",
+                unsafe_allow_html=True)
+
+    # Align Logo and Navigation Buttons (Center-Aligned)
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        st.markdown(
+            """
+            <div style="text-align: center;">
+                <button style="padding: 10px 20px; border-radius: 5px; border: 1px solid #ccc; 
+                               background-color: #f9f9f9; cursor: pointer; color: #000; width: 100px;">
+                    CTLC
+                </button>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col2:
+        st.markdown(
+            """
+            <div style="text-align: center;">
+                <img src="https://d18oqps9jq649a.cloudfront.net/public/assets/1635152427our%20story%20logo1635152427.png" 
+                     alt="Plaksha Logo" style="width: 80px;">
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col3:
+        st.markdown(
+            """
+            <div style="text-align: center;">
+                <button style="padding: 10px 20px; border-radius: 5px; border: 1px solid #ccc; 
+                               background-color: #f9f9f9; cursor: pointer; color: #000; width: 100px;">
+                    HTI Lab
+                </button>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 def main():
-    if "form_submitted" not in st.session_state:
-        st.session_state["form_submitted"] = False
-
-    if not st.session_state["form_submitted"]:
-        show_sign_up_form()
+    if not st.session_state["Entry"]:
+        show_welcome_page()
     else:
-        show_audio_recorder()
-        show_navigation_buttons()
+        if "form_submitted" not in st.session_state:
+            st.session_state["form_submitted"] = False
+
+        if not st.session_state["form_submitted"]:
+            show_sign_up_form()
+        else:
+            show_audio_recorder()
+            show_navigation_buttons()
 
 
 if __name__ == "__main__":
