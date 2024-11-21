@@ -1,4 +1,5 @@
 import base64
+import json
 
 import streamlit as st
 from openai import OpenAI
@@ -73,14 +74,12 @@ def process_audio_with_openai(audio_file_path):
                 ],
             )
         try:
-            result = json.loads(
-                speech_analysis.choices[0].message.content)
+            result = json.loads(speech_analysis.choices[0].message.content)
             scores = result["scores"]
             content = result["content"]
         except json.JSONDecodeError as e:
             print("Failed to parse JSON output:", e)
-            print("Raw response:",
-                  speech_analysis.choices[0].message.content)
+            print("Raw response:", speech_analysis.choices[0].message.content)
 
         return content, scores
 
